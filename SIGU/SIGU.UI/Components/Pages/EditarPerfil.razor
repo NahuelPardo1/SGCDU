@@ -1,0 +1,98 @@
+@page "/EditarPerfil"
+@rendermode InteractiveServer
+@inject NavigationManager nav
+@inject UsuarioServicioLogin usuarioServicioLogin
+@inject ModificarPerfilPropioUseCase modificarPerfilPropioUseCase
+
+@if (cargando)
+{
+    <p>Cargando...</p>
+}
+else if (!tienePermiso)
+{
+    <div class="alert alert-danger">
+        No estas logueado para modificar tu perfil.
+    </div>
+}
+else
+{
+    <h3>Modificar Perfil</h3>
+    <p>Completa los siguientes campos que quieras modificar</p>
+    <label class="form-label">
+        Nombre
+        <input @bind="usuarioNuevo.Nombre" class="form-control mb-2" placeholder="Nombre" />
+    </label>
+    <label class="col-form-label">
+        Apellido
+        <input @bind="usuarioNuevo.Apellido" class="form-control mb-2" placeholder="Apellido" />
+    </label>
+    <label class="col-form-label">
+        DNI
+        <input @bind="usuarioNuevo.DNI" class="form-control mb-2" placeholder="DNI" />
+    </label>
+    <label class="col-form-label">
+        Email
+        <input @bind="usuarioNuevo.Email" class="form-control mb-2" placeholder="Correo Electrónico" />
+    </label>
+    <label class="col-form-label">
+        Telefóno
+        <input @bind="usuarioNuevo.Telefono" class="form-control mb-2" placeholder="Teléfono" />
+    </label>
+    <label class="col-form-label">
+        Contraseña
+        <input @bind="usuarioNuevo.Contrasenia" class="form-control mb-2" placeholder="Contraseña" type="password" />
+    </label>
+    <button class="btn btn-primary mb-2" @onclick="ModificarPerfil">Modificar perfil</button>
+
+
+    @if (!string.IsNullOrEmpty(mensaje))
+    {
+        <div class="mt-2">@mensaje</div>
+    }
+}
+
+@code {
+    UsuarioDTO usuarioNuevo = new UsuarioDTO();
+    string mensaje = string.Empty;
+    bool tienePermiso = false;
+    bool cargando = true;
+    Usuario? actual = null!;
+    protected override async Task OnInitializedAsync()
+    {
+
+        try
+        {
+            actual = await Task.Run(() => usuarioServicioLogin.GetUser());
+            if (actual == null)
+            {
+                nav.NavigateTo("/");
+                return;
+            }
+            tienePermiso = usuarioServicioLogin.IsLogueado();
+
+        }
+        catch (Exception ex)
+        {
+            tienePermiso = false;
+            Console.WriteLine("ERROR EN OnInitializedAsync: " + ex.Message);
+        }
+
+        cargando = false;
+    }
+
+    private async Task ModificarPerfil()
+    {
+        try
+        {
+            if (actual != null)
+            {
+                usuarioNuevo.setPermiso(actual.GetPermisos());
+                await modificarPerfilPropioUseCase.EjecutarAsync(usuarioNuevo, actual.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"Error: {ex.Message}";
+        }
+    }
+}

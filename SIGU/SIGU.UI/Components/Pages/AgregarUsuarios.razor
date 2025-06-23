@@ -1,0 +1,128 @@
+@page "/AgregarUsuarios"  
+@rendermode InteractiveServer  
+@inject NavigationManager nav  
+@inject UsuarioServicioLogin usuarioServicioLogin  
+@inject UsuarioAltaUseCase usuarioAltaUseCase  
+<PageTitle>Agregar Usuario</PageTitle>  
+
+@using SIGU.Aplicacion.DTOs  
+@using SIGU.Aplicacion.Enums  
+
+@if (cargando)  
+{  
+    <p>Cargando...</p>  
+}  
+else if (!tienePermiso)  
+{  
+    <div class="alert alert-danger">  
+        No tienes permiso para agregar usuarios.  
+    </div>  
+}  
+else  
+{  
+    <h3>Agregar Usuario</h3>  
+    <p>Completa los siguientes campos para agregar un nuevo usuario:</p>  
+    <label class="form-label">Nombre
+        <input @bind="usuarioNuevo.Nombre" class="form-control mb-2" placeholder="Nombre" />
+    </label>  
+    <label class="col-form-label">Apellido
+        <input @bind="usuarioNuevo.Apellido" class="form-control mb-2" placeholder="Apellido" />
+    </label>  
+    <label class="col-form-label">DNI
+        <input @bind="usuarioNuevo.DNI" class="form-control mb-2" placeholder="DNI" />
+    </label>  
+    <label class="col-form-label">Email
+        <input @bind="usuarioNuevo.Email" class="form-control mb-2" placeholder="Correo Electrónico" />
+    </label>  
+    <label class="col-form-label">Telefóno  
+        <input @bind="usuarioNuevo.Telefono" class="form-control mb-2" placeholder="Teléfono" />  
+    </label>  
+    <label class="col-form-label">Contraseña  
+        <input @bind="usuarioNuevo.Contrasenia" class="form-control mb-2" placeholder="Contraseña" type="password" />  
+    </label>
+        
+        @if (admin)
+        {  
+          <div>
+            <label class="form-label">Permisos</label>
+            @foreach (Permiso permiso in Enum.GetValues<Permiso>())
+            {
+                <div class="form-check">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           checked="@usuarioNuevo.permisos.Contains(permiso)"
+                           @onchange="(e => OnPermisoChanged(permiso, e.Value))" />
+                    <label class="form-check-label">@permiso.ToString()</label>
+                </div>
+            }
+        </div>
+        }
+    
+    <button class="btn btn-primary mb-2" @onclick="AgregarUsuario">Agregar nuevo usuario</button>
+    @if (!string.IsNullOrEmpty(mensaje))  
+    {  
+        <div class="mt-2">@mensaje</div>  
+    }  
+}  
+
+@code {
+    UsuarioDTO usuarioNuevo = new UsuarioDTO();  
+    string mensaje = string.Empty;  
+    bool tienePermiso = false;  
+    bool cargando = true;
+    Usuario actual = null!;
+    bool admin = false;
+
+    protected override async Task OnInitializedAsync()  
+    {  
+
+        try  
+        {
+            // evitr warring async
+            actual =await Task.Run(() => usuarioServicioLogin.GetUser());
+            if (actual == null)  
+            {  
+                nav.NavigateTo("/");  
+                return;  
+            }
+            admin = usuarioServicioLogin.isAdmin();
+            tienePermiso = actual.Permisos.Contains(Permiso.UsuarioAlta);  
+        }  
+        catch (Exception ex)  
+        {  
+            tienePermiso = false;  
+            Console.WriteLine("ERROR EN OnInitializedAsync: " + ex.Message);  
+        }  
+
+        cargando = false;  
+    }  
+    private void OnPermisoChanged(Permiso permiso, object? checkedValue)
+    {
+        bool isChecked = checkedValue is bool b && b;
+        if (isChecked)
+        {
+            if (!usuarioNuevo.permisos.Contains(permiso))
+                usuarioNuevo.permisos.Add(permiso);
+        }
+        else
+        {
+            if (usuarioNuevo.permisos.Contains(permiso))
+                usuarioNuevo.permisos.Remove(permiso);
+        }
+    }
+
+    private async Task AgregarUsuario()  
+    {  
+        try  
+        {  
+
+            await usuarioAltaUseCase.EjecutarAsync(usuarioNuevo,actual.Id);
+            usuarioNuevo = new UsuarioDTO();  
+        }  
+        catch (Exception ex)
+        {  
+            mensaje = $"Error: {ex.Message}";  
+        }  
+    }  
+
+}

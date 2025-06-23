@@ -1,0 +1,103 @@
+@page "/ListadoEventosConCupo"  
+@rendermode InteractiveServer  
+@inject IRepositorioEventoDeportivo RepositorioED  
+@inject ListarEventosConCupoDisponibleUseCase eventosConCupoUseCase
+@inject EventoDeportivoBajaUseCase EventoBajaUseCase  
+@inject NavigationManager navegador  
+@inject UsuarioServicioLogin UsuarioServicioLogin  
+@inject ReservaAltaUseCase reservaAltaUseCase  
+<PageTitle>Listado de Eventos con Cupo</PageTitle>  
+@if (!logueado)  
+{  
+    <div class="alert alert-danger">Para ver el listado de eventos deportivos es necesario iniciar sesión.</div>  
+}  
+else  
+{  
+    <h1>Listado de Eventos con Cupo disponible</h1>  
+    <table class="table">  
+        <thead>  
+            <tr>  
+                <th>ID</th>  
+                <th>Responsable ID</th>  
+                <th>Nombre</th>  
+                <th>Descripcion</th>  
+                <th>Fecha Inicio</th>  
+                <th>Duracion</th>  
+                <th>Cupo Maximo</th>  
+                <th>Acciones</th>  
+            </tr>  
+        </thead>  
+        <tbody>  
+            @if (eventos != null && eventos.Any())  
+            {  
+                foreach (var evento in eventos)  
+                {  
+                    <tr>  
+                        <td>@evento.Id</td>  
+                        <td>@evento.ResponsableId</td>  
+                        <td>@evento.Nombre</td>  
+                        <td>@evento.Descripcion</td>  
+                        <td>@evento.FechaHoraInicio</td>  
+                        <td>@evento.DuracionHoras</td>  
+                        <td>@evento.CupoMaximo</td>  
+                        <td>  
+                            <button class="btn btn-secondary" @onclick="() => inscribirse(evento)">Inscribirse</button>  
+                        </td>  
+                    </tr>  
+                }  
+            }  
+            else  
+            {  
+                <tr>  
+                    <td colspan="8">No hay eventos disponibles.</td>  
+                </tr>  
+            }  
+        </tbody>  
+    </table>
+    @if (!string.IsNullOrEmpty(mensajeError))
+    {
+        <div class="alert alert-danger mt-3">@mensajeError</div>
+    }
+}  
+@code {
+    List<EventoDeportivoDTO> eventos = new List<EventoDeportivoDTO>();  
+    private bool logueado;   
+    Usuario? usuarioActual = null!;  
+    private string? mensajeError;
+
+    protected override async Task OnInitializedAsync()  
+    {  
+        try  
+        {  
+            usuarioActual = UsuarioServicioLogin.GetUser();  
+            logueado = UsuarioServicioLogin.IsLogueado();  
+            if (!logueado)  
+            {  
+                navegador.NavigateTo("/");  
+                return;  
+            }  
+            eventos = await eventosConCupoUseCase.Ejecutar();  
+        }  
+        catch (Exception ex)  
+        {  
+            // Manejo de errores, por ejemplo, mostrar un mensaje al usuario  
+            mensajeError+=($"Error al cargar los eventos: {ex.Message}");  
+        }  
+    }  
+    public async Task inscribirse(EventoDeportivoDTO evento)  
+    {  
+        try  
+        {  
+            usuarioActual = UsuarioServicioLogin.GetUser();  
+            ReservaDTO reserva = new ReservaDTO();  
+            reserva.setEventoDeportivoid(evento.Id);
+            reserva.setPersonaId(usuarioActual.Id);  
+            await reservaAltaUseCase.EjecutarAsync(reserva, usuarioActual.Id);
+            eventos = await eventosConCupoUseCase.Ejecutar();
+        }  
+        catch (Exception ex)  
+        {  
+            mensajeError+=($"Error al inscribirse: {ex.Message}");  
+        }  
+    }  
+}

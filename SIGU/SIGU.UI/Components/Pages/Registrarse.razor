@@ -1,0 +1,54 @@
+@page "/Registrarse"
+@rendermode InteractiveServer
+@inject RegisterUseCase registerUseCase
+@inject NavigationManager nav
+<PageTitle>Registrarse</PageTitle>
+
+<div class="d-flex justify-content-center align-items-center min-vh-100">
+    <div class="card p-4 shadow" style="width: 350px; min-height: 420px;">
+        <h3 class="text-center mb-3">Registro</h3>
+        <p class="text-center mb-4">Completa los siguientes campos para completar el registro:</p>
+        <input @bind="reg.Nombre" class="form-control mb-2" placeholder="Nombre" />
+        <input @bind="reg.Apellido" class="form-control mb-2" placeholder="Apellido" />
+        <input @bind="reg.DNI" class="form-control mb-2" placeholder="DNI" />
+        <input @bind="reg.Email" class="form-control mb-2" placeholder="Correo Electrónico" />
+        <input @bind="reg.Telefono" class="form-control mb-2" placeholder="Teléfono" />
+        <input @bind="reg.Contrasenia" class="form-control mb-2" placeholder="Contraseña" type="password" />
+        <button class="btn btn-primary mb-2 w-100" @onclick="Registrase">Registrarse</button>
+        <div class="text-center">
+            <a class="text-primary" style="cursor:pointer;" @onclick="IrALogin">Iniciar sesión</a>
+        </div>
+        @if (!string.IsNullOrEmpty(_mensajeError))
+        {
+            <div class="alert alert-danger mt-2 text-center">@_mensajeError</div>
+        }
+    </div>
+</div>
+
+@code {
+    UsuarioDTO reg = new UsuarioDTO();
+    string _mensajeError = string.Empty;
+
+    async Task Registrase()
+    {
+        try
+        {
+            await registerUseCase.EjecutarAsync(reg);
+        }
+        catch (Exception ex)
+        {
+            _mensajeError = ex.Message;
+        }
+        finally
+        {
+            if (string.IsNullOrEmpty(_mensajeError))
+            {
+                nav.NavigateTo("/");
+            }
+        }
+    }
+    void IrALogin()
+    {
+        nav.NavigateTo("/");
+    }
+}

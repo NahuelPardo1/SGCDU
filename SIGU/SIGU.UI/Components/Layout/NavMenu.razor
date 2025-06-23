@@ -1,0 +1,68 @@
+﻿<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="Home">SGCDU</a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="EditarPerfil">
+                <span class="bi bi-pencil-nav-menu" aria-hidden="true"></span> Modificar Perfil
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="MisIncripciones">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Mis Reservas
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="ListadoUsuarios">
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Listado de usuarios
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="ListadoEventosDeportivos">
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Listado de Eventos
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="ListadoEventosConCupo">
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span>Eventos Con Cupo
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="ListadoReservas">
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Listado de Reservas
+            </NavLink>
+        </div>
+        @if (tienePermiso)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="AgregarEventos">
+                    <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Agregar Evento
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="AgregarUsuarios">
+                    <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Agregar Usuario
+                </NavLink>
+            </div>
+        }
+        
+    </nav>
+</div>
+@inject UsuarioServicioLogin usuarioServicioLogin
+@code{
+    private bool tienePermiso = false;
+    protected override async Task OnInitializedAsync()
+    {
+        Usuario usuarioActual = await Task.Run(()=>usuarioServicioLogin.GetUser());
+        if(usuarioActual != null)
+        {
+            tienePermiso = usuarioServicioLogin.isAdmin();
+        }
+    }
+}

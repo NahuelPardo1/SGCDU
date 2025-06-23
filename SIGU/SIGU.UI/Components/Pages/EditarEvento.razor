@@ -1,0 +1,147 @@
+@page "/evento/{Id?}"
+@using SIGU.Aplicacion.Enums
+@rendermode InteractiveServer
+
+@inject UsuarioServicioLogin UsuarioServicioLogin
+@inject IRepositorioEventoDeportivo repositorioEvento
+@inject EventoDeportivoBajaUseCase eventoBajaUseCase
+@inject NavigationManager Navegador
+@inject EventoDeportivoModificacionUseCase eventoModificacionUseCase
+@inject EventoDeportivoAltaUseCase eventoAltaUseCase
+
+@if(!tienePermiso)
+{
+    <div class="alert alert-danger">No tienes permiso para modificar eventos.</div>
+}
+else{
+    @if (_errorDeId)
+    {
+        <div class="alert alert-danger">El ID proporcionado no es válido.</div>
+    }
+    else if (_esNuevoEvento)
+    {
+        <h3>Agregando un nuevo evento</h3>
+    }
+    else
+    {
+        <h3>Modificando a @_evento.Nombre</h3>
+    }
+
+    @if (!_errorDeId && tienePermiso)
+    {
+        <label class="form-label"> Nombre
+            <input placeholder="Nombre" @bind="_evento.Nombre" class="form-control" />
+        </label>
+        <label class="form-label">
+            Descripcion
+            <input placeholder="Descripcion" @bind="_evento.Descripcion" class="form-control" />
+        </label>
+        <label class="form-label">
+            Duracion en horas
+            <input placeholder="Email" @bind="_evento.DuracionHoras" class="form-control" />
+        </label>
+        <div>
+            <label class="form-label">
+                Cupo Maximo
+                <input placeholder="Telefono" @bind="_evento.CupoMaximo" class="form-control" />
+            </label>
+            <label class="form-label">
+                Fecha y Hora de Inicio
+                <input placeholder="Contraseña" @bind="_evento.FechaHoraInicio" class="form-control" />
+            </label>
+        </div>
+        <button class="btn btn-primary" @onclick="Aceptar">Aceptar</button>
+
+        @if (!string.IsNullOrEmpty(mensajeError))
+        {
+            <div class="alert alert-danger mt-3">@mensajeError</div>
+        }
+    }
+}
+
+@code {
+    private EventoDeportivoDTO _evento = new();
+    [Parameter] public string? Id { get; set; }
+
+    private Guid _eventoId;
+    private bool _esNuevoEvento = true;
+    private bool _errorDeId = false;
+    private bool tienePermiso = false;
+    private string? mensajeError;
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Usuario usuarioActual = await Task.Run(() => UsuarioServicioLogin.GetUser());
+            if (usuarioActual == null)
+            {
+                Navegador.NavigateTo("/");
+                return;
+            }
+            tienePermiso = usuarioActual.Permisos.Contains(Permiso.EventoModificacion);
+        }
+        catch (Exception ex)
+        {
+            tienePermiso = false;
+            Console.WriteLine("ERROR EN OnInitializedAsync: " + ex.Message);
+        }
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(Id) && Guid.TryParse(Id, out _eventoId))
+        {
+            EventoDeportivo? ev_hallado = await repositorioEvento.ObtenerPorIDAsync(_eventoId);
+            if (ev_hallado !=null)
+            {
+                _evento.Id = ev_hallado.Id;
+                _evento.Nombre = ev_hallado.Nombre ?? "";
+                _evento.Descripcion = ev_hallado.Descripcion ?? "";
+                _evento.ResponsableId = ev_hallado.ResponsbleID;
+                _evento.CupoMaximo = ev_hallado.CupoMaximo;
+                _evento.FechaHoraInicio = ev_hallado.FechaHoraInicio;
+                _evento.DuracionHoras = ev_hallado.DuracionHoras;
+                _esNuevoEvento = false;
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(Id))
+        {
+            _errorDeId = true;
+        }
+    }
+
+    private async Task Aceptar()
+    {
+        var usuarioActual = UsuarioServicioLogin.GetUser();
+
+        try
+        {
+            if (_esNuevoEvento)
+            {
+                try
+                {
+                    await eventoAltaUseCase.EjecutarAsync(_evento, usuarioActual.Id);
+                }
+                catch (Exception ex)
+                {
+                    mensajeError += (ex);
+                }
+            }
+            else
+            {
+                try
+                {
+                    await eventoModificacionUseCase.EjecutarAsync(_evento ,_eventoId, usuarioActual.Id);
+                }
+                catch (Exception ex)
+                {
+                    mensajeError+=($"Error al modificar el evento: {ex.Message}");
+                }
+            }
+            Navegador.NavigateTo("ListadoEventosDeportivos");
+        }
+        catch (Exception ex)
+        {
+            mensajeError += (ex);
+        }
+    }
+}

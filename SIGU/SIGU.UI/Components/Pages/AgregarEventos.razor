@@ -1,0 +1,91 @@
+@page "/AgregarEventos"  
+@rendermode InteractiveServer  
+@inject NavigationManager nav  
+@inject UsuarioServicioLogin usuarioServicioLogin  
+@inject EventoDeportivoAltaUseCase EventoDeportivoAltaUseCase  
+@using SIGU.Aplicacion.DTOs
+@using SIGU.Aplicacion.Enums
+<PageTitle>Agregar Evento Deportivo</PageTitle>  
+
+@if (cargando)  
+{  
+    <p>Cargando...</p>  
+}  
+else if (!tienePermiso)  
+{  
+    <div class="alert alert-danger">  
+        No tienes permiso para agregar usuarios.  
+    </div>  
+}  
+else  
+{  
+    <h3>Agregar Evento Deportivo</h3>  
+    <p>Completa los siguientes campos para agregar un nuevo usuario:</p>  
+    <label class="form-label">Nombre
+        <input @bind="eventoNuevo.Nombre" class="form-control mb-2" placeholder="Nombre" />
+    </label>  
+    <label class="col-form-label">Descripcion
+        <input @bind="eventoNuevo.Descripcion" class="form-control mb-2" placeholder="Descripcion" />
+    </label>  
+    <label class="col-form-label">Duracion
+        <input @bind="eventoNuevo.DuracionHoras" class="form-control mb-2" placeholder="Horas de duracion" />
+    </label>  
+    <label class="col-form-label">Cupo Maximo
+        <input @bind="eventoNuevo.CupoMaximo" class="form-control mb-2" placeholder="Cupo maximo de reservas" />
+    </label>  
+    <label class="col-form-label">Fecha Inicio  
+        <input @bind="eventoNuevo.FechaHoraInicio" class="form-control mb-2" placeholder="Fecha Inicio" />  
+    </label>
+
+    <button class="btn btn-primary mb-2" @onclick="Agregar">Agregar nuevo evento</button>
+
+    @if (!string.IsNullOrEmpty(mensaje))  
+    {  
+        <div class="mt-2">@mensaje</div>  
+    }  
+}  
+
+@code {
+    EventoDeportivoDTO eventoNuevo = new EventoDeportivoDTO();  
+    string mensaje = string.Empty;
+    bool tienePermiso = false;
+    bool cargando = true;
+    Usuario actual = null!;
+
+    protected override async Task OnInitializedAsync()  
+    {  
+        try  
+        {
+            // evitar warring async
+            actual = await Task.Run(() =>usuarioServicioLogin.GetUser());
+            if (actual == null)  
+            {  
+                nav.NavigateTo("/");  
+                return;  
+            }  
+            tienePermiso = actual.Permisos.Contains(Permiso.EventoAlta);  
+        }  
+        catch (Exception ex)  
+        {  
+            tienePermiso = false;  
+            Console.WriteLine("ERROR EN OnInitializedAsync: " + ex.Message);  
+        }  
+
+        cargando = false;  
+    }  
+
+    private async Task Agregar()  
+    {  
+        Console.WriteLine("Agregando evento...");
+        try  
+        {   
+            eventoNuevo.ResponsableId = actual.Id;
+            await EventoDeportivoAltaUseCase.EjecutarAsync(eventoNuevo, actual.Id);  
+            eventoNuevo = new EventoDeportivoDTO();  
+        }  
+        catch (Exception ex)  
+        {  
+            mensaje = $"Error: {ex.Message}";  
+        }  
+    }  
+}

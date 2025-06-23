@@ -1,0 +1,151 @@
+@page "/usuario/{Id?}"
+@using SIGU.Aplicacion.Enums
+@rendermode InteractiveServer
+
+@inject UsuarioServicioLogin UsuarioServicioLogin
+@inject IRepositorioUsuario repositorioUsuario
+@inject UsuarioBajaUseCase UsuarioBajaUseCase
+@inject NavigationManager Navegador
+@inject UsuarioModificacionUseCase UsuarioModificacionUseCase
+@inject UsuarioAltaUseCase UsuarioAltaUseCase
+
+@if(!tienePermiso)
+{
+    <div class="alert alert-danger">No tienes permiso para modificar usuarios.</div>
+}
+else{
+    @if (_errorDeId)
+    {
+        <div class="alert alert-danger">El ID proporcionado no es válido.</div>
+    }
+    else if (_esNuevoUsuario)
+    {
+        <h3>Agregando un nuevo usuario</h3>
+    }
+    else
+    {
+        <h3>Modificando a @_usuario.Nombre</h3>
+    }
+
+    @if (!_errorDeId && tienePermiso)
+    {
+        <label class="form-label"> Nombre
+            <input placeholder="Nombre" @bind="_usuario.Nombre" class="form-control" />
+        </label>
+        <label class="form-label">
+            Apellido
+            <input placeholder="Apellido" @bind="_usuario.Apellido" class="form-control" />
+        </label>
+        <label class="form-label">
+            Email
+            <input placeholder="Email" @bind="_usuario.Email" class="form-control" />
+        </label>
+        <div>
+            <label class="form-label">
+                Telefono
+                <input placeholder="Telefono" @bind="_usuario.Telefono" class="form-control" />
+            </label>
+            <label class="form-label">
+                DNI
+                <input placeholder="DNI" @bind="_usuario.DNI" class="form-control" />
+            </label>
+            <label class="form-label">
+                Contraseña
+                <input placeholder="Contraseña" @bind="_usuario.Contrasenia" class="form-control" />
+            </label>
+        </div>
+        <button class="btn btn-primary" @onclick="Aceptar">Aceptar</button>
+
+        @if (!string.IsNullOrEmpty(mensajeError))
+        {
+            <div class="alert alert-danger mt-3">@mensajeError</div>
+        }
+    }
+}
+
+@code {
+    private UsuarioDTO _usuario = new();
+    [Parameter] public string? Id { get; set; }
+
+    private Guid _usuarioId;
+    private bool _esNuevoUsuario = true;
+    private bool _errorDeId = false;
+    private bool tienePermiso = false;
+    private string? mensajeError;
+    protected override async Task OnInitializedAsync()
+    {
+
+        try
+        {
+            Usuario usuarioActual = await Task.Run(() => UsuarioServicioLogin.GetUser());
+            if (usuarioActual == null)
+            {
+                Navegador.NavigateTo("/");
+                return;
+            }
+            tienePermiso = usuarioActual.Permisos.Contains(Permiso.UsuarioModificacion);
+        }
+        catch (Exception ex)
+        {
+            tienePermiso = false;
+            Console.WriteLine("ERROR EN OnInitializedAsync: " + ex.Message);
+        }
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(Id) && Guid.TryParse(Id, out _usuarioId))
+            {
+                var us_hallado = await repositorioUsuario.ObtenerPorIDAsync(_usuarioId);
+                if (us_hallado is not null)
+                {
+                    _usuario.ID = us_hallado.Id;
+                    _usuario.Nombre = us_hallado.Nombre;
+                    _usuario.Apellido = us_hallado.Apellido;
+                    _usuario.DNI = us_hallado.DNI;
+                    _usuario.Email = us_hallado.Email;
+                    _usuario.Telefono = us_hallado.Telefono;
+                    _usuario.Contrasenia = us_hallado.Contrasenia;
+                    _esNuevoUsuario = false;
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(Id))
+            {
+                _errorDeId = true;
+            }
+        } catch (Exception ex)
+        {
+            mensajeError = $"Error al procesar el ID: {ex.Message}";
+            _errorDeId = true;
+        }
+        
+    }
+
+    private async Task Aceptar()
+    {
+        var usuarioActual = UsuarioServicioLogin.GetUser();
+
+        try
+        {
+            if (_esNuevoUsuario)
+            {
+                await UsuarioAltaUseCase.EjecutarAsync(_usuario, usuarioActual.Id);
+            }
+            else
+            {
+               if(_usuario.ID == usuarioActual.Id)
+               {
+                   mensajeError+=("No puedes modificar tu propio usuario desde esta página.");
+                   return;
+               }
+               await UsuarioModificacionUseCase.Ejecutar(_usuarioId, _usuario, usuarioActual.Id);
+            }
+            Navegador.NavigateTo("ListadoUsuarios");
+        }
+        catch (Exception ex)
+        {
+            mensajeError += (ex);
+        }
+    }
+}

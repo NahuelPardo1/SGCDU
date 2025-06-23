@@ -1,0 +1,99 @@
+@page "/MisIncripciones"  
+@rendermode InteractiveServer
+@inject EventoDeportivoListadoUseCase EventoDeportivoListadoUseCase  
+@inject UsuarioServicioLogin UsuarioServicioLogin  
+@inject ReservaBajaUseCase reservaBajaUseCase  
+@inject ReservaListadoUseCase reservaListadoUseCase
+@inject ReservaModificacionUseCase reservaModificacionUseCase
+<PageTitle>Mis Inscripciones</PageTitle>  
+<h1>Mis Inscripciones</h1>  
+@if (cargando)  
+{  
+    <p>Cargando inscripciones...</p>  
+}  
+else if (reservas == null || !reservas.Any())
+{  
+    <div class="alert alert-danger">  
+        No hay reservas disponibles  
+    </div>  
+}  
+else  
+{  
+    <table class="table">  
+        <thead>  
+            <tr>  
+                <th>ID</th>  
+                <th>Evento ID</th>  
+                <th>Persona ID</th>  
+                <th>Fecha Inscripcion</th>
+                <th>Acciones</th>
+            </tr>  
+        </thead>  
+        <tbody>  
+            @if (reservas != null && reservas.Any())  
+            {  
+                foreach (var reserva in reservas)  
+                {  
+                    <tr>  
+                        <td>@reserva.Id</td>  
+                        <td>@reserva.EventoDeportivoId</td>  
+                        <td>@reserva.PersonaId</td>  
+                        <td>@reserva.FechaAlta</td>
+                        <td>
+                            <button class="btn btn-danger "@onclick="() => darseDeBaja(reserva)">Dar de Baja</button>
+                        </td>
+                    </tr>  
+                }  
+            }  
+            else  
+            {  
+                <tr>  
+                    <td colspan="4">No tienes inscripciones.</td>  
+                </tr>  
+            }  
+        </tbody>  
+    </table>  
+}  
+
+@code {
+    bool cargando = true;  
+    List<ReservaDTO> reservas = new List<ReservaDTO>();
+    protected override async Task OnInitializedAsync()  
+    {  
+        try  
+        {  
+            var usuarioActual = UsuarioServicioLogin.GetUser();  
+            cargando = false;
+            if (usuarioActual != null)  
+            {  
+                var lista = await reservaListadoUseCase.Ejecutar();
+                if (lista != null && lista.Any())
+                {  
+                    reservas = lista.Where(r => r.PersonaId == usuarioActual.Id).ToList();
+                }  
+                else  
+                {  
+                    reservas = new List<ReservaDTO>();  
+                }
+                
+            } 
+        }  
+        catch (Exception ex)  
+        {  
+            Console.WriteLine($"Error al cargar las inscripciones: {ex.Message}");  
+        }  
+    } 
+    async Task darseDeBaja(ReservaDTO reserva)  
+    {  
+        try  
+        {  
+            var usuarioActual = UsuarioServicioLogin.GetUser();
+            await reservaBajaUseCase.EjecutarAsync(reserva.Id,usuarioActual.Id);
+            reservas.Remove(reserva); //para actualizar la lista UI y que se actualice la vista
+        }  
+        catch (Exception ex)  
+        {  
+            Console.WriteLine($"Error al darse de baja: {ex.Message}");  
+        }  
+    }
+}

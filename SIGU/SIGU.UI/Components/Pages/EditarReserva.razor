@@ -1,0 +1,133 @@
+@page "/reserva/{Id?}"
+@using SIGU.Aplicacion.Enums
+@rendermode InteractiveServer
+
+@inject UsuarioServicioLogin UsuarioServicioLogin
+@inject IRepositorioReserva repositorioReserva
+@inject ReservaBajaUseCase reservaBajaUseCase
+@inject NavigationManager Navegador
+@inject ReservaModificacionUseCase reservaModificacionUseCase
+@inject ReservaAltaUseCase reservaAltaUseCase
+
+@if(!tienePermiso)
+{
+    <div class="alert alert-danger">No tienes permiso para modificar reservas.</div>
+}
+else{
+    @if (_errorDeId)
+    {
+        <div class="alert alert-danger">El ID proporcionado no es válido.</div>
+    }
+    else if (_esNuevaReserva)
+    {
+        <h3>Agregando un nuevo evento</h3>
+    }
+    else
+    {
+        <h3>Modificando reserva @_reserva.Id</h3>
+    }
+
+    @if (!_errorDeId && tienePermiso)
+    {
+        <div class="mb-3">
+            <label class="form-label">Estado de Asistencia:</label>
+
+            @foreach (Estado estado in Enum.GetValues<Estado>())
+            {
+                <div class="form-check">
+                    <input class="form-check-input"
+                           type="radio"
+                           id="@estado"
+                           name="estadoAsistencia"
+                           value="@estado"
+                           @onchange="() => _reserva.EstadoAsistencia = estado"
+                           checked="@(_reserva.EstadoAsistencia == estado)" />
+                    <label class="form-check-label" for="@estado">@estado</label>
+                </div>
+            }
+        </div>
+        
+        <button class="btn btn-primary" @onclick="Aceptar">Aceptar</button>
+
+        @if (!string.IsNullOrEmpty(mensajeError))
+        {
+            <div class="alert alert-danger mt-3">@mensajeError</div>
+        }
+    }
+}
+
+@code {
+    private ReservaDTO _reserva = new();
+    [Parameter] public string? Id { get; set; }
+
+    private Guid _reservaId;
+    private bool _esNuevaReserva = true;
+    private bool _errorDeId = false;
+    private bool tienePermiso = false;
+    private string? mensajeError;
+    private Usuario? usuarioActual = null!;
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            usuarioActual = await Task.Run(() => UsuarioServicioLogin.GetUser());
+            if (usuarioActual == null)
+            {
+                Navegador.NavigateTo("/");
+                return;
+            }
+            tienePermiso = usuarioActual.Permisos.Contains(Permiso.ReservaModificacion);
+        }
+        catch (Exception ex)
+        {
+            tienePermiso = false;
+            Console.WriteLine("ERROR EN OnInitializedAsync: " + ex.Message);
+        }
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(Id) && Guid.TryParse(Id, out _reservaId))
+        {
+            try
+            {
+                Reserva? res_hallado = await repositorioReserva.ObtenerPorIDAsync(_reservaId);
+                if (res_hallado != null)
+                {
+                    _reserva.Id = res_hallado.Id;
+                    _reserva.PersonaId = res_hallado.usuarioID;
+                    _reserva.EventoDeportivoId = res_hallado.EventoDeportivoId;
+                    _reserva.EstadoAsistencia = res_hallado.EstadoAsistencia;
+                    _reserva.FechaAlta = res_hallado.FechaAlta;
+                    _esNuevaReserva = false;
+                }
+            }catch (Exception ex)
+            {
+                mensajeError = $"Error al procesar el ID: {ex.Message}";
+                _errorDeId = true;
+                return;
+            }
+        }
+    }
+
+    private async Task Aceptar()
+    {
+        var usuarioActual = UsuarioServicioLogin.GetUser();
+
+        try
+        {
+            if (_esNuevaReserva)
+            {
+                await reservaAltaUseCase.EjecutarAsync(_reserva, usuarioActual.Id);
+            }
+            else
+            {
+                 await reservaModificacionUseCase.ModificarReservaAsync(_reservaId,_reserva,usuarioActual.Id);
+            }
+            Navegador.NavigateTo("ListadoReservas");
+        }
+        catch (Exception ex)
+        {
+            mensajeError += (ex);
+        }
+    }
+}

@@ -1,0 +1,115 @@
+﻿@page "/ListadoUsuarios"  
+@using SIGU.Aplicacion.Enums  
+@rendermode InteractiveServer  
+@inject IRepositorioUsuario RepositorioUsuario  
+@inject UsuarioListadoUseCase UsuarioListadoUseCase  
+@inject UsuarioBajaUseCase UsuarioBajaUseCase  
+@inject UsuarioServicioLogin UsuarioServicioLogin  
+@inject NavigationManager navegador  
+<DialogoConfirmacion @ref="dialogo" OnConfirmado="Eliminar"/>
+
+<PageTitle>Listado de Usuarios</PageTitle>  
+
+@if (!logueado)  
+{  
+    <div class="alert alert-danger">Para ver el el listado de usuarios es necesario iniciar sesión.</div>  
+}  
+else  
+{ 
+    <h1>Listado de Usuarios</h1>
+    <table class="table">  
+        <thead>  
+            <tr>  
+                <th>ID</th>  
+                <th>Nombre</th>  
+                <th>Apellido</th>  
+                <th>DNI</th>  
+                <th>Email</th>  
+                <th>Telefono</th>  
+                <th>Acciones</th>  
+            </tr>  
+        </thead>  
+        <tbody>  
+            @if (usuarios != null && usuarios.Any())  
+            {  
+                foreach (var usuario in usuarios)  
+                {  
+                    <tr>  
+                        <td class="centrar-texto">@usuario.ID</td>  
+                        <td class="centrar-texto">@usuario.Nombre</td>  
+                        <td class="centrar-texto">@usuario.Apellido</td>  
+                        <td class="centrar-texto">@usuario.DNI</td>  
+                        <td class="centrar-texto">@usuario.Email</td>  
+                        <td class="centrar-texto">@usuario.Telefono</td>  
+                        <td>  
+                            <button class="btn btn-primary" @onclick="() => ModificarUsuario(usuario.ID)">Editar</button>  
+                            <button class="btn btn-danger" @onclick="() => ConfirmarEliminacion(usuario)">Eliminar</button>  
+                        </td>  
+                    </tr>  
+                }  
+            }  
+            else  
+            {  
+                <tr>  
+                    <td colspan="10">No hay usuarios disponibles.</td>  
+                </tr>  
+            }  
+        </tbody>  
+    </table> 
+    
+}  
+
+@code {
+    List<UsuarioDTO> usuarios = new List<UsuarioDTO>();   
+    private bool logueado;  
+    private DialogoConfirmacion dialogo = null!;
+    UsuarioDTO? _usuarioParaEliminar = null;  
+    Usuario? usuarioActual = null!;  
+
+    protected override async Task OnInitializedAsync()  
+    {  
+        try  
+        {  
+            usuarioActual = UsuarioServicioLogin.GetUser();  
+            logueado = UsuarioServicioLogin.IsLogueado();  
+            if (!logueado)  
+            {  
+                navegador.NavigateTo("/");  
+                return;  
+            }  
+
+            usuarios = await UsuarioListadoUseCase.Ejecutar();  
+        }  
+        catch (Exception ex)  
+        {  
+            Console.WriteLine($"Error al cargar los usuarios: {ex.Message}");  
+        }  
+    }  
+    private void ConfirmarEliminacion(UsuarioDTO usu)
+    {
+        _usuarioParaEliminar = usu;
+        dialogo.Mensaje = $"¿Desea eliminar al usuario {usu.Nombre} {usu.Apellido}?";
+        dialogo.Mostrar();
+    }
+
+    private async Task Eliminar()  
+    {
+        try
+        {
+           if (_usuarioParaEliminar != null && usuarioActual != null)
+           {
+               await UsuarioBajaUseCase.EjecutarAsync(_usuarioParaEliminar.ID, usuarioActual.Id);
+               usuarios = await UsuarioListadoUseCase.Ejecutar();
+           }
+        } catch (Exception ex)
+        {
+            Console.WriteLine($"Error al eliminar el usuario: {ex.Message}");
+        }
+        
+    }  
+
+    void ModificarUsuario(Guid id)  
+    {  
+        navegador.NavigateTo($"/usuario/{id}");  
+    }  
+}

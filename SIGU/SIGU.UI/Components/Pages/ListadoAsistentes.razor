@@ -1,0 +1,109 @@
+@page "/ListadoAsistentes/{Id?}"
+@using SIGU.Aplicacion.Enums
+@rendermode InteractiveServer
+
+@inject UsuarioServicioLogin UsuarioServicioLogin
+@inject IRepositorioEventoDeportivo repositorioEvento
+@inject NavigationManager Navegador
+@inject ListarAsistenciaAEventoUseCase listarAsistenciaAEventoUseCase
+
+@if (_errorDeId)
+{
+    <div class="alert alert-danger">El ID proporcionado no es válido.</div>
+}
+else
+{
+    <h3>Listado de asistentes al evento @_eventoId</h3>
+
+    @if (asistentes != null && asistentes.Any())
+    {
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Apellido</th>
+                    <th>Email</th>
+                    <th>Telefono</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var asistente in asistentes)
+                {
+                    <tr>
+                        <td>@asistente.ID</td>
+                        <td>@asistente.Nombre</td>
+                        <td>@asistente.Apellido</td>
+                        <td>@asistente.Email</td>
+                        <td>@asistente.Telefono</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <div class="alert alert-info">No hay asistentes registrados para este evento.</div>;
+    }
+}
+
+@if (!_errorDeId)
+{
+    
+
+    @if (!string.IsNullOrEmpty(mensajeError))
+    {
+        <div class="alert alert-danger mt-3">@mensajeError</div>
+    }
+}
+
+@code {
+    [Parameter] public string? Id { get; set; }
+    List<UsuarioDTO>? asistentes = new List<UsuarioDTO>();
+    private Guid _eventoId;
+    private bool _errorDeId = false;
+    private string? mensajeError = "";
+    Usuario usuarioActual = null!;
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            usuarioActual = await Task.Run(() => UsuarioServicioLogin.GetUser());
+            if (usuarioActual == null)
+            {
+                Navegador.NavigateTo("/");
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            mensajeError +=(ex.Message);
+        }
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(Id) && Guid.TryParse(Id, out _eventoId))
+            {
+                EventoDeportivo? ev_hallado = await repositorioEvento.ObtenerPorIDAsync(_eventoId);
+                if (ev_hallado != null)
+                {
+                    _errorDeId = false;
+                    mensajeError = string.Empty;
+                    asistentes = await listarAsistenciaAEventoUseCase.Ejecutar(_eventoId);
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(Id))
+            {
+                _errorDeId = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            mensajeError += (ex.Message)+"\n";
+        }
+
+    }
+
+}
